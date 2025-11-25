@@ -324,7 +324,7 @@ Cap al final de l'Edat Mitjana, les ciutats van créixer, van aparèixer els mer
         const hist = JSON.parse(localStorage.getItem('medieval_scores')||'[]');
         hist.unshift({ date: new Date().toISOString(), correct: correctCount, wrong: wrongCount });
         localStorage.setItem('medieval_scores', JSON.stringify(hist.slice(0,50)));
-      }catch(e){ console.warn('No s'ha pogut guardar historial', e); }
+      }catch(e){ console.warn("No s'ha pogut guardar historial", e); }
 
       showScreen('result');
     }
