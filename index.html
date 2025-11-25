@@ -270,37 +270,67 @@ Cap al final de l'Edat Mitjana, les ciutats van créixer, van aparèixer els mer
       });
     }
 
-    function verifyAnswer(){
-      const q = gameQuestions[currentIndex];
-      const btns = document.querySelectorAll('#answers button');
-      if(selectedChoiceIndex===null) return;
-      // find the selected button (by ring class)
-      let selectedBtn = null;
-      btns.forEach(b=>{ if(b.classList.contains('ring-2')) selectedBtn = b; b.disabled = true; });
-      const chosenOrig = parseInt(selectedBtn.dataset.orig,10);
-      const isCorrect = chosenOrig === q.correct;
-      if(isCorrect){
-        correctCount++;
-        document.getElementById('score-correct').textContent = correctCount;
-        selectedBtn.classList.add('bg-green-100','border-green-300');
-        try{ correctSound.currentTime = 0; correctSound.play(); }catch(e){}
-        // short delay then next
-        setTimeout(()=>{ proceedToNext(); }, 800);
-      } else {
-        wrongCount++;
-        document.getElementById('score-wrong').textContent = wrongCount;
-        // mark correct and wrong
-        btns.forEach(b=>{
-          const orig = parseInt(b.dataset.orig,10);
-          if(orig === q.correct) b.classList.add('bg-green-100','border-green-300');
-          else if(b.classList.contains('ring-2')) b.classList.add('bg-red-100','border-red-300');
-          else b.classList.add('bg-gray-50');
-        });
-        try{ wrongSound.currentTime = 0; wrongSound.play(); }catch(e){}
-        // show next button and wait for user
-        document.getElementById('btn-next').classList.remove('hidden');
-      }
+function verifyAnswer(){
+  const q = gameQuestions[currentIndex];
+  const btns = document.querySelectorAll('#answers button');
+
+  // Si no hay selección, no continuar
+  if (selectedChoiceIndex === null) return;
+
+  // Desactivar botones y el aceptar
+  btns.forEach(b => b.disabled = true);
+  document.getElementById('btn-accept').disabled = true;
+
+  // Averiguar cuál era la opción original escogida
+  // (la almacenamos en data-orig cuando rendereamos)
+  let selectedBtn = null;
+  btns.forEach(b => { if (b.classList.contains('ring-2')) selectedBtn = b; });
+
+  const chosenOrig = selectedBtn ? parseInt(selectedBtn.dataset.orig, 10) : null;
+  const isCorrect = chosenOrig === q.correct;
+
+  if (isCorrect) {
+    // Acierto: contador, efecto y avanzar rápido
+    correctCount++;
+    document.getElementById('score-correct').textContent = correctCount;
+    if (selectedBtn) {
+      selectedBtn.classList.add('bg-green-100','border-green-300','ring-4','ring-green-300');
     }
+    try{ correctSound.currentTime = 0; correctSound.play(); }catch(e){}
+    setTimeout(()=>{ proceedToNext(); }, 800);
+  } else {
+    // Fallo: incrementar, poner contornos claros
+    wrongCount++;
+    document.getElementById('score-wrong').textContent = wrongCount;
+
+    // Marcar: selected -> contorno rojo ; correcta -> contorno verde
+    btns.forEach(b => {
+      const orig = parseInt(b.dataset.orig, 10);
+      // botón seleccionado por el usuario -> rojo
+      if (b.classList.contains('ring-2')) {
+        b.classList.add('ring-4','ring-red-400','border-red-300');
+        b.classList.remove('ring-indigo-300');
+      }
+      // botón correcto -> verde
+      if (orig === q.correct) {
+        b.classList.add('ring-4','ring-green-400','border-green-300');
+        // si por casualidad es el mismo que el seleccionado, prioridad verde (mantener)
+        if (b.classList.contains('ring-red-400')) {
+          b.classList.remove('ring-red-400');
+          b.classList.add('ring-green-400');
+        }
+      }
+      // los demás se desactivan visualmente
+      if (!b.classList.contains('ring-4')) {
+        b.classList.add('opacity-60');
+      }
+    });
+
+    try{ wrongSound.currentTime = 0; wrongSound.play(); }catch(e){}
+    // Mostrar botón "Següent pregunta" y esperar al usuario
+    document.getElementById('btn-next').classList.remove('hidden');
+  }
+}
 
     function proceedToNext(){
       currentIndex++;
