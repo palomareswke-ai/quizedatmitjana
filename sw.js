@@ -1,10 +1,10 @@
 const CACHE_NAME = 'medieval-quiz-v1';
 const FILES_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icons/icon-192.svg',
-  '/icons/icon-512.svg'
+  './',
+  'index.html',
+  'manifest.json',
+  'icons/icon-192.svg',
+  'icons/icon-512.svg'
 ];
 
 self.addEventListener('install', (evt) => {

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Joc: L'Edat Mitjana — PWA</title>
   <meta name="theme-color" content="#7c3aed" />
-  <link rel="manifest" href="/manifest.json">
-  <link rel="icon" href="/icons/icon-192.svg">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.svg">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .emoji-small { font-size: 1.6rem; line-height: 1; }
@@ -24,7 +24,7 @@
   <div id="app" class="w-full max-w-2xl"></div>
 
 <script>
-/* ---- SOURCE TEXT ---- */
+/* SOURCE TEXT (template string to allow apostrophes safely) */
 const SOURCE_TEXT = `La Edad Mitjana és una època de la història que va començar després de l'Imperi Romà i va acabar quan van descobrir Amèrica.
 Durant aquest temps:
 Els castells eren molt importants. Hi vivien els reis, els nobles i els cavallers.
@@ -32,18 +32,18 @@ A prop dels castells hi havia els pobles, on vivien els pagesos, que treballaven
 Les ciutats eren petites i moltes vegades tenien muralles per protegir-se.
 Les persones resaven a Déu i anaven a l'església. Els monjos vivien als monestirs, on copiaven llibres i estudiaven.
 No hi havia màquines ni llum elèctrica, i les persones feien servir animals per treballar i espelmes per il·luminar-se.
-Cap al final de l'Edat Mitjana, les ciutats van créixer, van aparèixer els mercats i es van començar a fer viatges per comerciar`;
+Cap al final de l'Edat Mitjana, les ciutats van créixer, van aparèixer els mercats i es van començar a fer viatges per comerciar.`;
 
-/* ---- SOUNDS: try pixabay then fallback (prevents 403 console errors) ---- */
+/* Sounds: try pixabay then fallback */
 const soundCorrect = new Audio();
 const PIXABAY_TRY = "https://cdn.pixabay.com/download/audio/2021/09/20/audio_84f81f8d42.mp3";
 const FALLBACK_CORRECT = "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg";
 soundCorrect.src = PIXABAY_TRY;
-soundCorrect.addEventListener('error', () => { soundCorrect.src = FALLBACK_CORRECT; });
+soundCorrect.addEventListener("error", function() { soundCorrect.src = FALLBACK_CORRECT; });
 const soundWrong = new Audio("https://actions.google.com/sounds/v1/cartoon/boing.ogg");
 const soundClick = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
 
-/* ---- 50 QUESTIONS ---- */
+/* QUESTIONS (50) */
 const ALL_QUESTIONS = [
   { q: "Què va començar després de l'Imperi Romà?", choices: ["L'Edat Mitjana 🕰️","La prehistòria 🦴","El futur 🤖"], correctIndex:0 },
   { q: "Quan va acabar l'Edat Mitjana segons el text?", choices: ["Quan van descobrir Amèrica 🗺️","Quan es va inventar la televisió 📺","Quan va acabar la guerra mundial ⚔️"], correctIndex:0 },
@@ -101,12 +101,12 @@ const ALL_QUESTIONS = [
   { q: "On es trobaven molts mercats?", choices: ["A les ciutats en creixement 🛍️","A l'espai exterior 🌌","A la lluna 🌙"], correctIndex:0 }
 ];
 
-/* ---- helpers ---- */
+/* small helpers */
 function shuffleArray(a){ for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-function splitEmojiFromText(str){ const s=String(str).trim(); if(!s) return {text:'',emoji:null}; const parts=s.split(' '); const last=parts[parts.length-1]; if(/[^A-Za-z0-9\s,\.]/.test(last)){ parts.pop(); return { text: parts.join(' ').trim(), emoji: last }; } return { text: s, emoji: null }; }
-function escapeHtml(u){ return String(u).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+function splitEmojiFromText(str){ const s=String(str).trim(); if(!s) return {text:'',emoji:null}; const parts=s.split(' '); const last=parts[parts.length-1]; if(/[^A-Za-z0-9\\s,\\.]/.test(last)){ parts.pop(); return { text: parts.join(' ').trim(), emoji: last }; } return { text: s, emoji: null }; }
+function escapeHtml(u){ return String(u).replace(/[&<>"']/g,function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#039;'}[m]); }); }
 
-/* ---- render UI ---- */
+/* render UI */
 const app = document.getElementById('app');
 app.innerHTML = `
   <div id="screen-start" class="card-shadow bg-white rounded-2xl p-8 text-center">
@@ -191,8 +191,8 @@ app.innerHTML = `
   </div>
 `;
 
-/* ---- game logic (same behaviour requested) ---- */
-const STORAGE_KEY = 'medieval_quiz_pwa_scores';
+/* game logic */
+const STORAGE_KEY = "medieval_quiz_pwa_scores";
 let gameQuestions = [];
 let currentQ = 0;
 let selectedAnswerIndex = null;
@@ -200,92 +200,68 @@ let scoreCorrect = 0;
 let scoreWrong = 0;
 let shuffledChoices = [];
 
-const btnStart = document.getElementById('btn-start');
-const btnViewText = document.getElementById('btn-view-text');
-const modalText = document.getElementById('modal-text');
-const closeText = document.getElementById('close-text');
-const btnHistory = document.getElementById('btn-history');
-const modalHistory = document.getElementById('modal-history');
-const closeHistory = document.getElementById('close-history');
-const btnClearHistory = document.getElementById('btn-clear-history');
+const btnStart = document.getElementById("btn-start");
+const btnViewText = document.getElementById("btn-view-text");
+const modalText = document.getElementById("modal-text");
+const closeText = document.getElementById("close-text");
+const btnHistory = document.getElementById("btn-history");
+const modalHistory = document.getElementById("modal-history");
+const closeHistory = document.getElementById("close-history");
+const btnClearHistory = document.getElementById("btn-clear-history");
 
-const qIndexEl = document.getElementById('q-index');
-const progressBar = document.getElementById('progress-bar');
-const questionText = document.getElementById('question-text');
-const answersDiv = document.getElementById('answers');
-const btnAccept = document.getElementById('btn-accept');
-const btnNext = document.getElementById('btn-next');
-const scoreCorrectEl = document.getElementById('score-correct');
-const scoreWrongEl = document.getElementById('score-wrong');
+const qIndexEl = document.getElementById("q-index");
+const progressBar = document.getElementById("progress-bar");
+const questionText = document.getElementById("question-text");
+const answersDiv = document.getElementById("answers");
+const btnAccept = document.getElementById("btn-accept");
+const btnNext = document.getElementById("btn-next");
+const scoreCorrectEl = document.getElementById("score-correct");
+const scoreWrongEl = document.getElementById("score-wrong");
 
-const resultEmoji = document.getElementById('result-emoji');
-const resultTitle = document.getElementById('result-title');
-const finalCorrect = document.getElementById('final-correct');
-const finalWrong = document.getElementById('final-wrong');
-const btnPlayAgain = document.getElementById('btn-play-again');
-const btnBackHome = document.getElementById('btn-back-home');
+const resultEmoji = document.getElementById("result-emoji");
+const resultTitle = document.getElementById("result-title");
+const finalCorrect = document.getElementById("final-correct");
+const finalWrong = document.getElementById("final-wrong");
+const btnPlayAgain = document.getElementById("btn-play-again");
+const btnBackHome = document.getElementById("btn-back-home");
 
-function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
-function splitEmojiFromTextLocal(str){ const s=String(str).trim(); if(!s) return {text:'',emoji:null}; const parts=s.split(' '); const last=parts[parts.length-1]; if(/[^A-Za-z0-9\s,\.]/.test(last)){ parts.pop(); return {text:parts.join(' ').trim(), emoji:last}; } return {text:s, emoji:null}; }
-function escapeHtmlLocal(u){ return String(u).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+btnStart.addEventListener("click", ()=>{ try{ soundClick.currentTime=0; soundClick.play(); }catch(e){}; startGame(); });
+btnViewText.addEventListener("click", ()=>{ modalText.classList.remove("hidden"); });
+closeText.addEventListener("click", ()=> modalText.classList.add("hidden"));
+btnHistory.addEventListener("click", ()=> { renderHistory(); modalHistory.classList.remove("hidden"); });
+closeHistory && closeHistory.addEventListener("click", ()=> modalHistory.classList.add("hidden"));
+btnClearHistory && btnClearHistory.addEventListener("click", ()=> { if(confirm("Esborrem l'historial?")){ localStorage.removeItem(STORAGE_KEY); renderHistory(); } });
 
-/* events */
-btnStart.addEventListener('click', ()=>{ try{ soundClick.currentTime=0; soundClick.play(); }catch(e){}; startGame(); });
-btnViewText.addEventListener('click', ()=>{ modalText.classList.remove('hidden'); });
-closeText.addEventListener('click', ()=> modalText.classList.add('hidden'));
-btnPlayAgain.addEventListener('click', ()=>{ try{ soundClick.currentTime=0; soundClick.play(); }catch(e){}; startGame(); });
-btnBackHome.addEventListener('click', ()=> showScreen('start'));
-btnAccept.addEventListener('click', ()=> { if(selectedAnswerIndex===null) return; verifyAnswer(); });
-btnNext.addEventListener('click', ()=> { btnNext.classList.add('hidden'); proceedToNext(); });
+btnPlayAgain.addEventListener("click", ()=>{ try{ soundClick.currentTime=0; soundClick.play(); }catch(e){}; startGame(); });
+btnBackHome.addEventListener("click", ()=> showScreen("start"));
 
-function startGame(){
-  const copy = ALL_QUESTIONS.map((q,idx)=>({...q,id:idx}));
-  shuffle(copy);
-  gameQuestions = copy.slice(0,5);
-  currentQ = 0;
-  scoreCorrect = 0;
-  scoreWrong = 0;
-  selectedAnswerIndex = null;
-  scoreCorrectEl.textContent='0';
-  scoreWrongEl.textContent='0';
-  progressBar.style.width='0%';
-  showScreen('game');
-  renderQuestion();
-}
+btnAccept.addEventListener("click", ()=> { if(selectedAnswerIndex===null) return; verifyAnswer(); });
+btnNext.addEventListener("click", ()=> { btnNext.classList.add("hidden"); proceedToNext(); });
 
-function renderQuestion(){
-  const qObj = gameQuestions[currentQ];
-  qIndexEl.textContent = (currentQ+1);
-  progressBar.style.width = ((currentQ/5)*100)+'%';
-  questionText.textContent = qObj.q;
-  answersDiv.innerHTML = '';
-  selectedAnswerIndex = null;
-  btnAccept.disabled = true;
-  btnNext.classList.add('hidden');
+document.addEventListener("keydown",(e)=>{
+  if (document.getElementById("screen-game").classList.contains("hidden")) return;
+  if(['1','2','3'].includes(e.key)){ const idx=parseInt(e.key,10)-1; const btns=answersDiv.querySelectorAll("button"); if(btns[idx]) btns[idx].click(); }
+  else if(e.key==='Enter'){ if(!btnAccept.disabled) btnAccept.click(); }
+});
 
-  const originalChoices = qObj.choices.map((c,i)=>({text:c,orig:i}));
-  shuffledChoices = shuffle(originalChoices.slice());
-
-  shuffledChoices.forEach((choice,i)=>{ const {text,emoji} = splitEmojiFromTextLocal(choice.text); const displayEmoji = emoji || '🔹'; const displayText = text || choice.text; const btn = document.createElement('button'); btn.type='button'; btn.className='answer-btn text-left border rounded-lg px-4 py-3 hover:scale-[1.01] transition flex items-center gap-3 bg-white text-gray-800'; btn.innerHTML = `<span class="num-badge">${i+1}</span><span class="emoji-small">${displayEmoji}</span><span class="flex-1">${escapeHtmlLocal(displayText)}</span>`; btn.addEventListener('click', ()=>{ const all = answersDiv.querySelectorAll('button'); all.forEach(b=>b.classList.remove('ring-2','ring-indigo-300')); btn.classList.add('ring-2','ring-indigo-300'); selectedAnswerIndex = i; btnAccept.disabled = false; }); answersDiv.appendChild(btn); });
-
-function verifyAnswer(){ const qObj = gameQuestions[currentQ]; const chosenOriginalIndex = shuffledChoices[selectedAnswerIndex].orig; const isCorrect = chosenOriginalIndex === qObj.correctIndex; const card = document.getElementById('card'); const btns = answersDiv.querySelectorAll('button'); btns.forEach(b=>b.disabled=true); btnAccept.disabled=true; if(isCorrect){ scoreCorrect++; scoreCorrectEl.textContent = scoreCorrect; card.classList.add('correct-glow'); try{ soundCorrect.currentTime = 0; soundCorrect.play(); }catch(e){}; btns[selectedAnswerIndex].classList.add('bg-green-100','border-green-300'); setTimeout(()=>{ card.classList.remove('correct-glow'); proceedToNext(); },900); } else { scoreWrong++; scoreWrongEl.textContent = scoreWrong; card.classList.add('wrong-shake'); try{ soundWrong.currentTime = 0; soundWrong.play(); }catch(e){}; btns.forEach((b,i)=>{ const orig = shuffledChoices[i].orig; if(orig===qObj.correctIndex){ b.classList.add('bg-green-100','border-green-300'); } else if(i===selectedAnswerIndex){ b.classList.add('bg-red-100','border-red-300'); } else { b.classList.add('bg-gray-50'); } }); btnNext.classList.remove('hidden'); setTimeout(()=>{ card.classList.remove('wrong-shake'); },700); } }
-
+/* game functions */
+function startGame(){ const copy=ALL_QUESTIONS.map((q,idx)=>({...q,id:idx})); shuffleArray(copy); gameQuestions=copy.slice(0,5); currentQ=0; scoreCorrect=0; scoreWrong=0; selectedAnswerIndex=null; scoreCorrectEl.textContent='0'; scoreWrongEl.textContent='0'; progressBar.style.width='0%'; showScreen('game'); renderQuestion(); }
+function renderQuestion(){ const qObj=gameQuestions[currentQ]; qIndexEl.textContent=(currentQ+1); progressBar.style.width=((currentQ/5)*100)+'%'; questionText.textContent=qObj.q; answersDiv.innerHTML=''; selectedAnswerIndex=null; btnAccept.disabled=true; btnNext.classList.add('hidden'); const originalChoices=qObj.choices.map((c,i)=>({text:c,orig:i})); shuffledChoices=shuffleArray(originalChoices.slice()); shuffledChoices.forEach((choice,i)=>{ const sp=splitEmojiFromText(choice.text); const displayEmoji=sp.emoji||'🔹'; const displayText=sp.text||choice.text; const btn=document.createElement('button'); btn.type='button'; btn.className='answer-btn text-left border rounded-lg px-4 py-3 hover:scale-[1.01] transition flex items-center gap-3 bg-white text-gray-800'; btn.innerHTML=`<span class="num-badge">${i+1}</span><span class="emoji-small">${displayEmoji}</span><span class="flex-1">${escapeHtml(displayText)}</span>`; btn.addEventListener('click',()=>{ const all=answersDiv.querySelectorAll('button'); all.forEach(b=>b.classList.remove('ring-2','ring-indigo-300')); btn.classList.add('ring-2','ring-indigo-300'); selectedAnswerIndex=i; btnAccept.disabled=false; }); answersDiv.appendChild(btn); }); }
+function verifyAnswer(){ const qObj=gameQuestions[currentQ]; const chosenOriginalIndex=shuffledChoices[selectedAnswerIndex].orig; const isCorrect=chosenOriginalIndex===qObj.correctIndex; const card=document.getElementById('card'); const btns=answersDiv.querySelectorAll('button'); btns.forEach(b=>b.disabled=true); btnAccept.disabled=true; if(isCorrect){ scoreCorrect++; scoreCorrectEl.textContent=scoreCorrect; card.classList.add('correct-glow'); try{ soundCorrect.currentTime=0; soundCorrect.play(); }catch(e){}; btns[selectedAnswerIndex].classList.add('bg-green-100','border-green-300'); setTimeout(()=>{ card.classList.remove('correct-glow'); proceedToNext(); },900); } else { scoreWrong++; scoreWrongEl.textContent=scoreWrong; card.classList.add('wrong-shake'); try{ soundWrong.currentTime=0; soundWrong.play(); }catch(e){}; btns.forEach((b,i)=>{ const orig=shuffledChoices[i].orig; if(orig===qObj.correctIndex){ b.classList.add('bg-green-100','border-green-300'); } else if(i===selectedAnswerIndex){ b.classList.add('bg-red-100','border-red-300'); } else { b.classList.add('bg-gray-50'); } }); btnNext.classList.remove('hidden'); setTimeout(()=>{ card.classList.remove('wrong-shake'); },700); } }
 function proceedToNext(){ currentQ++; if(currentQ>=5) finishGame(); else renderQuestion(); }
+function finishGame(){ progressBar.style.width='100%'; finalCorrect.textContent=scoreCorrect; finalWrong.textContent=scoreWrong; if(scoreCorrect>=4){ resultEmoji.textContent='🏆'; resultTitle.textContent='Super! Molt bé!'; } else if(scoreCorrect>=2){ resultEmoji.textContent='🙂'; resultTitle.textContent='Bona feina!'; } else { resultEmoji.textContent='🤔'; resultTitle.textContent="Hem d'estudiar una mica més"; } saveScore({ date: new Date().toISOString(), correct: scoreCorrect, wrong: scoreWrong }); showScreen('result'); }
+function showScreen(name){ document.getElementById('screen-start').classList.toggle('hidden', name!=='start'); document.getElementById('screen-game').classList.toggle('hidden', name!=='game'); document.getElementById('screen-result').classList.toggle('hidden', name!=='result'); if(name==='start') progressBar.style.width='0%'; }
 
-function finishGame(){ progressBar.style.width = '100%'; finalCorrect.textContent = scoreCorrect; finalWrong.textContent = scoreWrong; if(scoreCorrect >= 4){ resultEmoji.textContent='🏆'; resultTitle.textContent='Super! Molt bé!'; } else if(scoreCorrect >= 2){ resultEmoji.textContent='🙂'; resultTitle.textContent='Bona feina!'; } else { resultEmoji.textContent='🤔'; resultTitle.textContent="Hem d'estudiar una mica més"; } saveScore({ date: new Date().toISOString(), correct: scoreCorrect, wrong: scoreWrong }); showScreen('result'); }
-
-function showScreen(name){ document.getElementById('screen-start').classList.toggle('hidden', name !== 'start'); document.getElementById('screen-game').classList.toggle('hidden', name !== 'game'); document.getElementById('screen-result').classList.toggle('hidden', name !== 'result'); if(name === 'start') progressBar.style.width='0%'; }
-
-function getHistory(){ try{ const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; }catch(e){ return []; } }
-function saveScore(obj){ const hist = getHistory(); hist.unshift(obj); localStorage.setItem(STORAGE_KEY, JSON.stringify(hist.slice(0,50))); }
-function renderHistory(){ const list = getHistory(); const container = document.getElementById('history-list'); container.innerHTML = ''; if(!list.length){ container.innerHTML = '<p class="text-gray-600">No hi ha resultats. Juga una partida!</p>'; return; } const ul = document.createElement('ul'); ul.className = 'space-y-2'; list.forEach((s,i)=>{ const li = document.createElement('li'); const date = new Date(s.date); li.innerHTML = `<div class="p-3 bg-gray-50 rounded flex justify-between items-center"> <div><div class="text-sm font-medium">Partida ${list.length - i}</div><div class="text-xs text-gray-500">Data: ${date.toLocaleString()}</div></div> <div class="text-sm"><span class="font-semibold text-green-600">${s.correct}</span> ✔ — <span class="font-semibold text-red-600">${s.wrong}</span> ✖</div> </div>`; ul.appendChild(li); }); container.appendChild(ul); }
+function getHistory(){ try{ const raw=localStorage.getItem(STORAGE_KEY); return raw?JSON.parse(raw):[]; }catch(e){ return []; } }
+function saveScore(obj){ const hist=getHistory(); hist.unshift(obj); localStorage.setItem(STORAGE_KEY, JSON.stringify(hist.slice(0,50))); }
+function renderHistory(){ const list=getHistory(); const container=document.getElementById('history-list'); container.innerHTML=''; if(!list.length){ container.innerHTML='<p class="text-gray-600">No hi ha resultats. Juga una partida!</p>'; return; } const ul=document.createElement('ul'); ul.className='space-y-2'; list.forEach((s,i)=>{ const li=document.createElement('li'); const date=new Date(s.date); li.innerHTML=`<div class="p-3 bg-gray-50 rounded flex justify-between items-center"> <div><div class="text-sm font-medium">Partida ${list.length - i}</div><div class="text-xs text-gray-500">Data: ${date.toLocaleString()}</div></div> <div class="text-sm"><span class="font-semibold text-green-600">${s.correct}</span> ✔ — <span class="font-semibold text-red-600">${s.wrong}</span> ✖</div> </div>`; ul.appendChild(li); }); container.appendChild(ul); }
 
 showScreen('start');
 try{ soundClick.load(); soundCorrect.load(); soundWrong.load(); }catch(e){}
 document.addEventListener('click',(e)=>{ const mt=document.getElementById('modal-text'); const mh=document.getElementById('modal-history'); if(mt && !mt.classList.contains('hidden') && e.target===mt) mt.classList.add('hidden'); if(mh && !mh.classList.contains('hidden') && e.target===mh) mh.classList.add('hidden'); });
 
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('/sw.js').then(()=>console.log('SW registered')).catch(()=>console.log('SW failed'));
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(()=>{ console.log('SW registered'); }).catch(()=>{ console.log('SW failed'); });
 }
 </script>
 </body>
