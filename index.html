@@ -1,268 +1,359 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ca">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Joc: L'Edat Mitjana — PWA</title>
-  <meta name="theme-color" content="#7c3aed" />
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="icons/icon-192.svg">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Joc de l'Edat Mitjana</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="theme-color" content="#7c3aed" />
   <style>
-    .emoji-small { font-size: 1.6rem; line-height: 1; }
-    .num-badge { font-weight: 700; width: 2rem; display:inline-block; text-align:center; }
-    .card-shadow { box-shadow: 0 10px 30px rgba(0,0,0,0.12); }
+    .card-shadow { box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    .emoji-small { font-size: 1.5rem; line-height:1; }
+    .num-badge { width:2rem; display:inline-block; font-weight:700; text-align:center }
     .correct-glow { animation: correctPulse 0.9s ease forwards; }
     .wrong-shake { animation: wrongShake .6s cubic-bezier(.36,.07,.19,.97) both; }
-    @keyframes correctPulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
-    @keyframes wrongShake { 10%,90%{transform:translateX(-2px);}20%,80%{transform:translateX(4px);} }
-    .answer-btn{ transition: transform .12s, box-shadow .12s }
+    @keyframes correctPulse { 0%{transform:scale(1)}50%{transform:scale(1.02)}100%{transform:scale(1)} }
+    @keyframes wrongShake { 10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)} }
   </style>
 </head>
-<body class="bg-gradient-to-br from-indigo-50 to-amber-50 min-h-screen flex items-center justify-center p-4">
+<body class="bg-gradient-to-br from-yellow-100 to-yellow-300 min-h-screen flex items-center justify-center p-4">
 
-  <div id="app" class="w-full max-w-2xl"></div>
+  <div id="app" class="w-full max-w-xl"></div>
 
-<script>
-/* SOURCE TEXT (template string to allow apostrophes safely) */
-const SOURCE_TEXT = "La Edad Mitjana és una època de la història que va començar després de l'Imperi Romà i va acabar quan van descobrir Amèrica.
+  <script>
+    // --- Source text (kept in a JS string using backticks; contains apostrophes safely) ---
+    const originalText = `La Edad Mitjana és una època de la història que va començar després de l'Imperi Romà i va acabar quan van descobrir Amèrica.
 Durant aquest temps:
 Els castells eren molt importants. Hi vivien els reis, els nobles i els cavallers.
 A prop dels castells hi havia els pobles, on vivien els pagesos, que treballaven al camp.
 Les ciutats eren petites i moltes vegades tenien muralles per protegir-se.
 Les persones resaven a Déu i anaven a l'església. Els monjos vivien als monestirs, on copiaven llibres i estudiaven.
 No hi havia màquines ni llum elèctrica, i les persones feien servir animals per treballar i espelmes per il·luminar-se.
-Cap al final de l'Edat Mitjana, les ciutats van créixer, van aparèixer els mercats i es van començar a fer viatges per comerciar.";
+Cap al final de l'Edat Mitjana, les ciutats van créixer, van aparèixer els mercats i es van començar a fer viatges per comerciar.`;
 
-/* Sounds: try pixabay then fallback */
-const soundCorrect = new Audio();
-const PIXABAY_TRY = "https://cdn.pixabay.com/download/audio/2021/09/20/audio_84f81f8d42.mp3";
-const FALLBACK_CORRECT = "https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg";
-soundCorrect.src = PIXABAY_TRY;
-soundCorrect.addEventListener("error", function() { soundCorrect.src = FALLBACK_CORRECT; });
-const soundWrong = new Audio("https://actions.google.com/sounds/v1/cartoon/boing.ogg");
-const soundClick = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+    // --- Sounds ---
+    // correctSound uses the pixabay link user requested; we try it and fallback if blocked
+    const correctSound = new Audio();
+    correctSound.src = "https://cdn.pixabay.com/download/audio/2021/09/20/audio_84f81f8d42.mp3";
+    correctSound.addEventListener('error', ()=> { correctSound.src = 'https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg'; });
+    // wrong sound kept simple
+    const wrongSound = new Audio('https://actions.google.com/sounds/v1/cartoon/boing.ogg');
 
-/* QUESTIONS (50) */
-const ALL_QUESTIONS = [
-  { q: "Què va començar després de l'Imperi Romà?", choices: ["L'Edat Mitjana 🕰️","La prehistòria 🦴","El futur 🤖"], correctIndex:0 },
-  { q: "Quan va acabar l'Edat Mitjana segons el text?", choices: ["Quan van descobrir Amèrica 🗺️","Quan es va inventar la televisió 📺","Quan va acabar la guerra mundial ⚔️"], correctIndex:0 },
-  { q: "Què era molt important a l'Edat Mitjana?", choices: ["Els castells 🏰","Els gratacels 🏢","Les fàbriques 🏭"], correctIndex:0 },
-  { q: "Qui vivia als castells?", choices: ["Reis i nobles 👑","Pagesos 🌾","Pescadors 🎣"], correctIndex:0 },
-  { q: "Qui també vivia als castells a part dels reis?", choices: ["Cavallers 🛡️","Taxistes 🚕","Pilots ✈️"], correctIndex:0 },
-  { q: "On vivien la majoria de pagesos?", choices: ["Als pobles prop dels castells 🏘️","Als edificis moderns 🏢","A les estacions 🚉"], correctIndex:0 },
-  { q: "Què feien els pagesos?", choices: ["Treballaven al camp 🌾","Feien experiments 🔬","Conduïen cotxes 🚗"], correctIndex:0 },
-  { q: "Com eren moltes ciutats a l'Edat Mitjana?", choices: ["Petites i amb muralles 🧱","Immenses com ara 🏙️","Sota l'aigua 🌊"], correctIndex:0 },
-  { q: "Per què tenien muralles les ciutats?", choices: ["Per protegir-se 🛡️","Per decorar 🎨","Per fer esport 🏅"], correctIndex:0 },
-  { q: "On anaven les persones a resar?", choices: ["A l'església ⛪","A la platja 🏖️","Al parc 🌳"], correctIndex:0 },
+    // --- Questions (50) ---
+    // These are simple, kid-friendly and based on originalText. Each choice includes an emoji.
+    const QUESTIONS = [
+      { q: "Quan comença l'Edat Mitjana?", opts:["Després de l'Imperi Romà 🕰️","Abans dels dinosaures 🦕","Al futur 🤖"], correct:0 },
+      { q: "Qui vivia als castells?", opts:["Reis, nobles i cavallers 👑","Pagesos 🌾","Pescadors 🎣"], correct:0 },
+      { q: "On vivien els pagesos?", opts:["Als pobles prop dels castells 🏘️","A la ciutat gran 🏙️","A la platja 🏖️"], correct:0 },
+      { q: "Com eren moltes ciutats?", opts:["Petites i amb muralles 🧱","Molt modernes 🏢","Submergides 🌊"], correct:0 },
+      { q: "On anaven les persones a resar?", opts:["A l'església ⛪","Al parc 🌳","Al mercat 🛍️"], correct:0 },
+      { q: "On vivien els monjos?", opts:["Als monestirs 📜","Als teatres 🎭","Al port ⛵"], correct:0 },
+      { q: "Què feien els monjos amb els llibres?", opts:["Els copiaven ✍️","Els cremaven 🔥","Els llençaven 🗑️"], correct:0 },
+      { q: "Hi havia llum elèctrica?", opts:["No, espelmes 🕯️","Sí, com ara 💡","Només de nit 🌙"], correct:0 },
+      { q: "Amb què treballaven al camp?", opts:["Amb animals 🐂","Amb tractors 🚜","Amb robots 🤖"], correct:0 },
+      { q: "Com s'il·luminaven a casa?", opts:["Amb espelmes 🕯️","Amb bombetes 💡","Amb làsers 🔦"], correct:0 },
 
-  { q: "Qui vivia als monestirs?", choices: ["Monjos 📜","Policia 👮","Kids 🎒"], correctIndex:0 },
-  { q: "Què feien sovint els monjos amb els llibres?", choices: ["Els copiaven ✍️","Els cremaven 🔥","Els llençaven 🗑️"], correctIndex:0 },
-  { q: "Els monjos estudiaven i...", choices: ["Copiaven llibres 📚","Jugaven ordinadors 💻","Anaven al cine 🎬"], correctIndex:0 },
-  { q: "Hi havia llum elèctrica a l'Edat Mitjana?", choices: ["No, no hi havia llum elèctrica ⚡❌","Sí, com ara 💡✅","Només a algunes cases 🏠"], correctIndex:0 },
-  { q: "Amb què s'il·luminaven sovint?", choices: ["Amb espelmes 🕯️","Amb bombetes 💡","Amb làsers 🔦"], correctIndex:0 },
-  { q: "Què feien servir per treballar al camp?", choices: ["Animals de tir i càrrega 🐂","Robots 🤖","Automòbils 🚗"], correctIndex:0 },
-  { q: "Cap al final de l'Edat Mitjana què passava amb les ciutats?", choices: ["Van créixer 🏙️","Van desaparèixer 💨","Van volar ☁️"], correctIndex:0 },
-  { q: "Què va aparèixer a les ciutats al final de l'època?", choices: ["Mercats i comerç 🛍️","Coets espacials 🚀","Cotxes de fórmula 1 🏎️"], correctIndex:0 },
-  { q: "Per què es feien viatges cap al final de l'Edat Mitjana?", choices: ["Per comerciar i viatjar ⛵","Per anar de vacances a la Lluna 🌕","Per fer esports nàutics 🏄"], correctIndex:0 },
-  { q: "Com eren algunes ciutats moltes vegades?", choices: ["Amb muralles per protegir-se 🧱","Amb Wi-Fi gratis 📶","Amb rutes de tramvia 🚋"], correctIndex:0 },
+      { q: "Quan va acabar l'Edat Mitjana (segons el text)?", opts:["Quan es va descobrir Amèrica 🌎","Quan van aparèixer cotxes 🚗","Quan va començar el cinema 🎬"], correct:0 },
+      { q: "Què hi havia a prop dels castells?", opts:["Pobles amb pagesos 🏘️","Castells moderns 🏢","Aeroports ✈️"], correct:0 },
+      { q: "Per què tenien muralles les ciutats?", opts:["Per protegir-se 🛡️","Per decorar 🎨","Per jugar 🏀"], correct:0 },
+      { q: "Què feien els pagesos?", opts:["Treballar al camp 🌾","Navegar a l'espai 🚀","Cantar cançons 🎤"], correct:0 },
+      { q: "Què no hi havia a l'Edat Mitjana?", opts:["Electricitat a les cases ⚡","Animals 🐮","Castells 🏰"], correct:0 },
+      { q: "Què va aparèixer cap al final?", opts:["Mercats i comerç 🛍️","Automòbils massius 🚗","Robots a casa 🤖"], correct:0 },
+      { q: "Per què feien viatges?", opts:["Per comerciar ⛵","Per passejar a la Lluna 🌕","Per fer esports 🏄"], correct:0 },
+      { q: "Qui vivia als monestirs?", opts:["Monjos 📘","Artistes 🎨","Fusters 🪓"], correct:0 },
+      { q: "Què utilitzaven per il·luminar-se?", opts:["Espelmes 🕯️","Faroles modernes 💡","Pantalles 📱"], correct:0 },
+      { q: "Què era molt important?", opts:["Els castells 🏰","Els gratacels 🏢","Les fàbriques 🏭"], correct:0 },
 
-  { q: "Què no existia en aquell temps?", choices: ["L'electricitat a casa ⚡❌","Els animals 🐮","Els castells 🏰"], correctIndex:0 },
-  { q: "On vivien moltes persones religioses?", choices: ["Als monestirs 🏛️","Als centres comercials 🏬","Als laboratoris 🔬"], correctIndex:0 },
-  { q: "Què feien servir per il·luminar-se a casa?", choices: ["Espelmes 🕯️","Pantalles LED 💡","Rellotges intel·ligents ⌚"], correctIndex:0 },
-  { q: "Els monjos sovint eren…", choices: ["Estudiants i copistes 📖","Pilots d'avió ✈️","Cantants famosos 🎤"], correctIndex:0 },
-  { q: "Quin lloc era central en la vida religiosa?", choices: ["L'església ⛪","El gimnàs 🏋️","El centre comercial 🛒"], correctIndex:0 },
-  { q: "Els castells estaven relacionats amb…", choices: ["Reis i nobles 👑","Estacions de tren 🚉","Parcs d'atraccions 🎡"], correctIndex:0 },
-  { q: "Quin element apareix a la frase 'van començar a fer viatges per…'?", choices: ["Comerciar i mercaderies 🧭","Jugar a videojocs 🎮","Navegar en coets 🚀"], correctIndex:0 },
-  { q: "Com es deia la gent que treballava el camp?", choices: ["Pagesos 🌾","Monjos 📜","Nobles 👑"], correctIndex:0 },
-  { q: "A prop de què vivien els pobles?", choices: ["A prop dels castells 🏰","A prop dels aeròdroms ✈️","A prop de les autopistes 🛣️"], correctIndex:0 },
-  { q: "Les ciutats s'estaven fent al final de l'Edat Mitjana?", choices: ["Sí, van créixer i van tenir mercats 🏙️","No, van escurçar-se 🪓","Van desaparèixer en massa 💨"], correctIndex:0 },
+      { q: "On vivien els reis?", opts:["Als castells 🏰","Als xalets 🏡","Als apartaments 🏢"], correct:0 },
+      { q: "Quina estructura defensiva tenien moltes ciutats?", opts:["Muralles 🧱","Pals de fusta 🪵","Globus aerostàtics 🎈"], correct:0 },
+      { q: "Què feien amb els llibres als monestirs?", opts:["Els copiaven a mà ✍️","Els pintaven de colors 🎨","Els venien a mercat 🧺"], correct:0 },
+      { q: "Com viatjaven sovint?", opts:["Amb vaixell o carro ⛵","Amb cotxe 🚗","Amb avió ✈️"], correct:0 },
+      { q: "Què passava amb les ciutats cap al final?", opts:["Creixien i tenien mercats 🏙️","S'evaporaven 💨","Es feien petites 🧊"], correct:0 },
+      { q: "Qui treballava al camp?", opts:["Pagesos 🌾","Mercaders 🧺","Nobles 👑"], correct:0 },
+      { q: "Quin tipus de llum NO era comú a les cases?", opts:["Electricitat 💡","Espelmes 🕯️","Torxes 🔥"], correct:0 },
+      { q: "Què s'utilitzava per tirar i carregar?", opts:["Animals de tracció 🐂","Tractors moderns 🚜","Màquines elèctriques ⚙️"], correct:0 },
+      { q: "On es copiaven llibres i s'estudiava?", opts:["Als monestirs 📚","A l'aire lliure 🌤️","Als gimnassos 🏋️"], correct:0 },
+      { q: "Què copiaven sovint els monjos?", opts:["Llibres i textos 📖","Jocs 🎮","Revistes modernes 🗞️"], correct:0 },
 
-  { q: "Què feien les persones per resar?", choices: ["Anar a l'església ⛪","Anar al cine 🎬","Anar a la biblioteca 📚"], correctIndex:0 },
-  { q: "Els monestirs eren llocs on…", choices: ["Es copiaven llibres i s'estudiava 📚","Es fabricaven cotxes 🚗","Es jugaven esports 🏅"], correctIndex:0 },
-  { q: "Quina era una font d'il·luminació casolana?", choices: ["Espelma 🕯️","Foco LED 💡","Flash d'un mòbil 📱"], correctIndex:0 },
-  { q: "Les persones utilitzaven animals per…", choices: ["Treballar al camp i transportar càrregues 🐴","Fer esports ecuestres 🏇","Fer experiments científics 🔬"], correctIndex:0 },
-  { q: "Quina activitat comercial va créixer cap al final de l'Edat Mitjana?", choices: ["Mercats i comerç 🛍️","Streaming en directe 📺","Automoció massiva 🚗"], correctIndex:0 },
-  { q: "Per què els mercaders viatjaven?", choices: ["Per comerciar amb altres llocs 🛒","Per fer fotos 📸","Per protestar 🪧"], correctIndex:0 },
-  { q: "Les ciutats en general eren…", choices: ["Petites sovint 🏘️","Molt grans com ara 🏙️","Totalment deshabitades 🚫"], correctIndex:0 },
-  { q: "On vivien sovint els nobles?", choices: ["Als castells amb els reis 👑","Als xalets a la platja 🏖️","Als apartaments moderns 🏢"], correctIndex:0 },
-  { q: "Qui eren responsables de protegir el castell?", choices: ["Cavallers i nobles 🛡️","Pagesos 🌾","Comerciants 🧺"], correctIndex:0 },
-  { q: "Quina cosa NO era típica d'aquella època?", choices: ["Llum elèctrica a totes les cases 💡❌","Monestirs amb monjos 📜","Pobles amb pagesos 🏡"], correctIndex:0 },
+      { q: "Com eren les muralles?", opts:["Grans i resistents 🧱","Fines com paper 📄","De gel ❄️"], correct:0 },
+      { q: "Què es feia als mercats?", opts:["Comerciar 🛒","Anar al cinema 🎬","Fer esports 🏀"], correct:0 },
+      { q: "Quin transport era comú?", opts:["Cavalls i carros 🐎","Cotxes 🚗","Helicòpters 🚁"], correct:0 },
+      { q: "Com eren la majoria de ciutats?", opts:["Petites 🏘️","Gigants 🏙️","Submergides 🌊"], correct:0 },
+      { q: "On es practicava la religió?", opts:["A l'església ⛪","Al cinema 🎬","Al supermercat 🛒"], correct:0 },
+      { q: "Qui governava sovint?", opts:["Reis i nobles 👑","Caçadors 🏹","Exploradors 🧭"], correct:0 },
+      { q: "Què no hi havia als pobles?", opts:["Cotxes 🚗","Pagesos 🌾","Animals domèstics 🐮"], correct:0 },
+      { q: "Què copiaven als monestirs?", opts:["Textos i llibres 📜","Fulletons moderns 📰","Menús 🍽️"], correct:0 },
+      { q: "Què va créixer al final de l'època?", opts:["Mercats i comerç 🏪","Televisió 📺","Internet 🌐"], correct:0 },
+      { q: "Com s'il·luminaven les cases?", opts:["Espelmes 🕯️","Llanternes 🔦","LED modernes 💡"], correct:0 }
+    ];
 
-  { q: "Com es deia el lloc on vivien els monjos?", choices: ["Monestir 📘","Aeròdrom ✈️","Platja 🏖️"], correctIndex:0 },
-  { q: "Què feien servir per protegir les ciutats?", choices: ["Muralles i defenses 🧱","Parcs infantils 🛝","Centres comercials 🏬"], correctIndex:0 },
-  { q: "Quin element s'associa a la il·luminació casolana?", choices: ["Espelmes 🕯️","Llums LED modernes 💡","Llanternes solars 🌞"], correctIndex:0 },
-  { q: "Qui vivia als pobles al voltant dels castells?", choices: ["Pagesos i famílies 🌾","Pilots d'avió ✈️","Programadors 💻"], correctIndex:0 },
-  { q: "Què era una ocupació habitual dels pagesos?", choices: ["Treballar el camp i conrear 🌱","Programar jocs 🎮","Tenir oficines bancàries 🏦"], correctIndex:0 },
-  { q: "Cap a quin moment van començar els mercats i viatges comercials?", choices: ["Cap al final de l'Edat Mitjana 🕰️","Al principi de la prehistòria 🦴","Fa 1 any 📆"], correctIndex:0 },
-  { q: "Què es feia sovint amb els llibres als monestirs?", choices: ["Copiar-los a mà ✍️","Posar-los a l'ordinador 💻","Vendre'ls a la ràdio 📻"], correctIndex:0 },
-  { q: "Quin era un recurs per treballar el sòl abans de màquines?", choices: ["Animals de càrrega i tracció 🐂","Tractors moderns 🚜","Grues mecàniques 🏗️"], correctIndex:0 },
-  { q: "Quina afirmació és correcta segons el text?", choices: ["Les ciutats van créixer cap al final de l'Edat Mitjana 🏙️","Les ciutats mai no van existir 🏚️","Les ciutats semblaven coets 🚀"], correctIndex:0 },
-  { q: "On es trobaven molts mercats?", choices: ["A les ciutats en creixement 🛍️","A l'espai exterior 🌌","A la lluna 🌙"], correctIndex:0 }
-];
+    // --- Game state ---
+    let gameQuestions = [];
+    let currentIndex = 0;
+    let correctCount = 0;
+    let wrongCount = 0;
 
-/* small helpers */
-function shuffleArray(a){ for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-function splitEmojiFromText(str){ const s=String(str).trim(); if(!s) return {text:'',emoji:null}; const parts=s.split(' '); const last=parts[parts.length-1]; if(/[^A-Za-z0-9\\s,\\.]/.test(last)){ parts.pop(); return { text: parts.join(' ').trim(), emoji: last }; } return { text: s, emoji: null }; }
-function escapeHtml(u){ return String(u).replace(/[&<>"']/g,function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#039;'}[m]); }); }
+    // --- Helpers ---
+    function shuffle(arr){ return arr.slice().sort(()=>Math.random()-0.5); }
 
-/* render UI */
-const app = document.getElementById('app');
-app.innerHTML = `
-  <div id="screen-start" class="card-shadow bg-white rounded-2xl p-8 text-center">
-    <div class="text-6xl mb-3">🏰</div>
-    <h1 class="text-3xl font-extrabold text-indigo-700 mb-2">Joc: L'Edat Mitjana</h1>
-    <p class="text-gray-600 mb-6">Preguntes fàcils per a nens i nenes. Cada partida: 5 preguntes.</p>
-    <div class="flex flex-col sm:flex-row gap-3 justify-center">
-      <button id="btn-start" class="px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold shadow hover:bg-indigo-700">Començar</button>
-      <button id="btn-view-text" class="px-6 py-3 rounded-xl bg-amber-400 text-amber-900 font-semibold shadow hover:bg-amber-500">Veure text original</button>
-      <button id="btn-history" class="px-6 py-3 rounded-xl bg-green-400 text-green-900 font-semibold shadow hover:bg-green-500">Historial</button>
-    </div>
-  </div>
+    // Create UI once and then manipulate
+    const app = document.getElementById('app');
 
-  <div id="modal-text" class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-xl shadow-xl max-w-3xl w-full p-6">
-      <div class="flex justify-between items-start">
-        <h2 class="text-xl font-bold text-indigo-700">Text original</h2>
-        <button id="close-text" class="text-gray-500 hover:text-gray-800">Tancar ✖</button>
-      </div>
-      <div class="mt-4 text-gray-800 leading-relaxed"><pre class="whitespace-pre-wrap">${escapeHtml(SOURCE_TEXT)}</pre></div>
-    </div>
-  </div>
+    function createInitialUI(){
+      app.innerHTML = '';
 
-  <div id="modal-history" class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-xl shadow-xl max-w-3xl w-full p-6">
-      <div class="flex justify-between items-start">
-        <h2 class="text-xl font-bold text-green-700">Historial de puntuacions</h2>
-        <div class="flex gap-2">
-          <button id="btn-clear-history" class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded">Esborrar</button>
-          <button id="close-history" class="text-gray-500 hover:text-gray-800">Tancar ✖</button>
+      // Start screen
+      const start = document.createElement('div');
+      start.id = 'screen-start';
+      start.className = 'card-shadow bg-white rounded-2xl p-8 text-center';
+      start.innerHTML = `
+        <div class="text-6xl mb-3">🏰</div>
+        <h1 class="text-3xl font-extrabold text-indigo-700 mb-2">Joc: L'Edat Mitjana</h1>
+        <p class="text-gray-600 mb-6">Preguntes fàcils per a nens i nenes. Cada partida: 5 preguntes.</p>
+        <div class="flex flex-col sm:flex-row gap-3 justify-center">
+          <button id="btn-start" class="px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold shadow hover:bg-indigo-700">Començar</button>
+          <button id="btn-view-text" class="px-6 py-3 rounded-xl bg-amber-400 text-amber-900 font-semibold shadow hover:bg-amber-500">Veure text original</button>
+          <button id="btn-history" class="px-6 py-3 rounded-xl bg-green-400 text-green-900 font-semibold shadow hover:bg-green-500">Historial</button>
         </div>
-      </div>
-      <div id="history-list" class="mt-4 text-gray-800 max-h-64 overflow-auto"></div>
-    </div>
-  </div>
+      `;
+      app.appendChild(start);
 
-  <div id="screen-game" class="hidden mt-6">
-    <div class="bg-white rounded-2xl p-6 card-shadow">
-      <div class="flex items-center justify-between mb-4">
-        <div class="flex items-center gap-3">
-          <div class="text-4xl">🧭</div>
-          <div>
-            <div class="text-sm text-gray-500">Pregunta <span id="q-index">1</span> / 5</div>
-            <div id="progress" class="w-48 h-2 bg-gray-200 rounded-full mt-2 overflow-hidden"><div id="progress-bar" class="h-full bg-indigo-500 w-0"></div></div>
+      // Modal for original text
+      const modalText = document.createElement('div');
+      modalText.id = 'modal-text';
+      modalText.className = 'fixed inset-0 bg-black/40 flex items-center justify-center p-4 hidden';
+      modalText.innerHTML = `<div class="bg-white rounded-xl shadow-xl max-w-3xl w-full p-6"><div class="flex justify-between items-start"><h2 class="text-xl font-bold text-indigo-700">Text original</h2><button id="close-text" class="text-gray-500 hover:text-gray-800">Tancar ✖</button></div><div class="mt-4 text-gray-800 leading-relaxed"><pre id="original-pre" class="whitespace-pre-wrap"></pre></div></div>`;
+      app.appendChild(modalText);
+      document.getElementById('original-pre').textContent = originalText;
+
+      // History modal
+      const modalHistory = document.createElement('div');
+      modalHistory.id = 'modal-history';
+      modalHistory.className = 'fixed inset-0 bg-black/40 flex items-center justify-center p-4 hidden';
+      modalHistory.innerHTML = `<div class="bg-white rounded-xl shadow-xl max-w-3xl w-full p-6"><div class="flex justify-between items-start"><h2 class="text-xl font-bold text-green-700">Historial</h2><div class="flex gap-2"><button id="clear-history" class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded">Esborrar</button><button id="close-history" class="text-gray-500 hover:text-gray-800">Tancar ✖</button></div></div><div id="history-list" class="mt-4 text-gray-800 max-h-64 overflow-auto"></div></div>`;
+      app.appendChild(modalHistory);
+
+      // Game screen
+      const game = document.createElement('div');
+      game.id = 'screen-game';
+      game.className = 'hidden mt-6';
+      game.innerHTML = `
+        <div class="bg-white rounded-2xl p-6 card-shadow">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="text-4xl">🧭</div>
+              <div>
+                <div class="text-sm text-gray-500">Pregunta <span id="q-index">1</span> / 5</div>
+                <div id="progress" class="w-48 h-2 bg-gray-200 rounded-full mt-2 overflow-hidden"><div id="progress-bar" class="h-full bg-indigo-500 w-0"></div></div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-sm text-gray-600">Aciertos: <span id="score-correct">0</span></div>
+              <div class="text-sm text-gray-600">Errors: <span id="score-wrong">0</span></div>
+            </div>
+          </div>
+
+          <div id="card" class="rounded-lg p-6 bg-gradient-to-br from-white to-slate-50 border border-gray-100 card-shadow">
+            <div class="mb-4">
+              <div class="text-2xl font-semibold text-indigo-700 mb-3" id="question-text">Pregunta aquí</div>
+              <div class="text-sm text-gray-500 mb-2">Escull la resposta: 1, 2 o 3</div>
+            </div>
+
+            <div id="answers" class="grid gap-3"></div>
+
+            <div class="mt-5 flex justify-between items-center">
+              <div class="text-sm text-gray-500">Utilitza 1-2-3 o el ratolí</div>
+              <div class="flex gap-3">
+                <button id="btn-accept" class="px-5 py-2 rounded-xl bg-indigo-600 text-white font-semibold disabled:opacity-50" disabled>Acceptar</button>
+                <button id="btn-next" class="px-5 py-2 rounded-xl bg-gray-300 text-gray-800 hidden">Següent pregunta</button>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="text-right">
-          <div class="text-sm text-gray-600">Aciertos: <span id="score-correct">0</span></div>
-          <div class="text-sm text-gray-600">Errors: <span id="score-wrong">0</span></div>
+      `;
+      app.appendChild(game);
+
+      // Result screen
+      const result = document.createElement('div');
+      result.id = 'screen-result';
+      result.className = 'hidden mt-6';
+      result.innerHTML = `
+        <div class="bg-white rounded-2xl p-6 card-shadow text-center">
+          <div class="text-6xl mb-3" id="result-emoji">🎉</div>
+          <h3 class="text-2xl font-extrabold text-indigo-700" id="result-title">Has acabat!</h3>
+          <p class="mt-2 text-gray-700">Aciertos: <span id="final-correct">0</span> — Errors: <span id="final-wrong">0</span></p>
+          <div class="mt-6 flex justify-center gap-3">
+            <button id="btn-play-again" class="px-5 py-2 rounded-xl bg-indigo-600 text-white">Jugar de nou</button>
+            <button id="btn-back-home" class="px-5 py-2 rounded-xl bg-amber-400 text-amber-900">Tornar</button>
+          </div>
         </div>
-      </div>
+      `;
+      app.appendChild(result);
 
-  <div id="card" class="rounded-lg p-6 bg-gradient-to-br from-white to-slate-50 border border-gray-100 card-shadow">
-    <div class="mb-4">
-      <div class="text-2xl font-semibold text-indigo-700 mb-3" id="question-text">Pregunta aquí</div>
-      <div class="text-sm text-gray-500 mb-2">Escull la resposta: 1, 2 o 3</div>
-    </div>
+      // Wire up basic buttons
+      document.getElementById('btn-start').addEventListener('click', ()=> startGame());
+      document.getElementById('btn-view-text').addEventListener('click', ()=> document.getElementById('modal-text').classList.remove('hidden'));
+      document.getElementById('close-text').addEventListener('click', ()=> document.getElementById('modal-text').classList.add('hidden'));
+      document.getElementById('btn-history').addEventListener('click', ()=> { renderHistory(); document.getElementById('modal-history').classList.remove('hidden'); });
+      document.getElementById('close-history').addEventListener('click', ()=> document.getElementById('modal-history').classList.add('hidden'));
+      document.getElementById('clear-history').addEventListener('click', ()=> { if(confirm('Esborrar historial?')){ localStorage.removeItem('medieval_scores'); renderHistory(); }});
 
-    <div id="answers" class="grid gap-3"></div>
+      document.getElementById('btn-play-again').addEventListener('click', ()=> startGame());
+      document.getElementById('btn-back-home').addEventListener('click', ()=> showScreen('start'));
 
-    <div class="mt-5 flex justify-between items-center">
-      <div class="text-sm text-gray-500">Utilitza 1-2-3 o el ratolí</div>
-      <div class="flex gap-3">
-        <button id="btn-accept" class="px-5 py-2 rounded-xl bg-indigo-600 text-white font-semibold disabled:opacity-50" disabled>Acceptar</button>
-        <button id="btn-next" class="px-5 py-2 rounded-xl bg-gray-300 text-gray-800 hidden">Següent pregunta</button>
-      </div>
-    </div>
-  </div>
-</div>
+      document.getElementById('btn-accept').addEventListener('click', ()=> { if(selectedChoiceIndex===null) return; verifyAnswer(); });
+      document.getElementById('btn-next').addEventListener('click', ()=> { document.getElementById('btn-next').classList.add('hidden'); proceedToNext(); });
 
-  <div id="screen-result" class="hidden mt-6">
-    <div class="bg-white rounded-2xl p-6 card-shadow text-center">
-      <div class="text-6xl mb-3" id="result-emoji">🎉</div>
-      <h3 class="text-2xl font-extrabold text-indigo-700" id="result-title">Has acabat!</h3>
-      <p class="mt-2 text-gray-700">Aciertos: <span id="final-correct">0</span> — Errors: <span id="final-wrong">0</span></p>
+      // keyboard support
+      document.addEventListener('keydown', (e)=>{
+        if(!document.getElementById('screen-game').classList.contains('hidden')){
+          if(['1','2','3'].includes(e.key)){
+            const idx = parseInt(e.key,10)-1;
+            const btns = document.querySelectorAll('#answers button');
+            if(btns[idx]) btns[idx].click();
+          } else if(e.key==='Enter'){
+            if(!document.getElementById('btn-accept').disabled) document.getElementById('btn-accept').click();
+          }
+        }
+      });
+    }
 
-      <div class="mt-6 flex justify-center gap-3">
-        <button id="btn-play-again" class="px-5 py-2 rounded-xl bg-indigo-600 text-white">Jugar de nou</button>
-        <button id="btn-back-home" class="px-5 py-2 rounded-xl bg-amber-400 text-amber-900">Tornar</button>
-      </div>
-    </div>
-  </div>
-`;
+    // --- Game functions ---
+    let selectedChoiceIndex = null;
 
-/* game logic */
-const STORAGE_KEY = "medieval_quiz_pwa_scores";
-let gameQuestions = [];
-let currentQ = 0;
-let selectedAnswerIndex = null;
-let scoreCorrect = 0;
-let scoreWrong = 0;
-let shuffledChoices = [];
+    function startGame(){
+      gameQuestions = shuffle(QUESTIONS).slice(0,5);
+      currentIndex = 0;
+      correctCount = 0;
+      wrongCount = 0;
+      document.getElementById('score-correct').textContent = '0';
+      document.getElementById('score-wrong').textContent = '0';
+      document.getElementById('progress-bar').style.width = '0%';
+      showScreen('game');
+      renderQuestion();
+    }
 
-const btnStart = document.getElementById("btn-start");
-const btnViewText = document.getElementById("btn-view-text");
-const modalText = document.getElementById("modal-text");
-const closeText = document.getElementById("close-text");
-const btnHistory = document.getElementById("btn-history");
-const modalHistory = document.getElementById("modal-history");
-const closeHistory = document.getElementById("close-history");
-const btnClearHistory = document.getElementById("btn-clear-history");
+    function renderQuestion(){
+      const q = gameQuestions[currentIndex];
+      document.getElementById('q-index').textContent = (currentIndex+1);
+      document.getElementById('progress-bar').style.width = ((currentIndex/5)*100)+'%';
+      document.getElementById('question-text').textContent = q.q;
+      const answers = document.getElementById('answers');
+      answers.innerHTML = '';
+      selectedChoiceIndex = null;
+      document.getElementById('btn-accept').disabled = true;
+      document.getElementById('btn-next').classList.add('hidden');
 
-const qIndexEl = document.getElementById("q-index");
-const progressBar = document.getElementById("progress-bar");
-const questionText = document.getElementById("question-text");
-const answersDiv = document.getElementById("answers");
-const btnAccept = document.getElementById("btn-accept");
-const btnNext = document.getElementById("btn-next");
-const scoreCorrectEl = document.getElementById("score-correct");
-const scoreWrongEl = document.getElementById("score-wrong");
+      // shuffle choices and render with number + emoji
+      const opts = q.opts.map((t,i)=>({text:t, orig:i}));
+      const shuffled = shuffle(opts);
+      shuffled.forEach((opt,i)=>{
+        // split last token emoji if present
+        const parts = opt.text.split(' ');
+        let emoji = parts[parts.length-1];
+        let text = parts.slice(0,-1).join(' ');
+        if(!text) { text = opt.text; emoji = '🔹'; }
 
-const resultEmoji = document.getElementById("result-emoji");
-const resultTitle = document.getElementById("result-title");
-const finalCorrect = document.getElementById("final-correct");
-const finalWrong = document.getElementById("final-wrong");
-const btnPlayAgain = document.getElementById("btn-play-again");
-const btnBackHome = document.getElementById("btn-back-home");
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'answer-btn text-left border rounded-lg px-4 py-3 flex items-center gap-3 bg-white';
+        btn.innerHTML = `<span class="num-badge">${i+1}</span><span class="emoji-small">${emoji}</span><span class="flex-1">${text}</span>`;
+        btn.addEventListener('click', ()=>{
+          document.querySelectorAll('#answers button').forEach(b=> b.classList.remove('ring-2','ring-indigo-300'));
+          btn.classList.add('ring-2','ring-indigo-300');
+          selectedChoiceIndex = i;
+          // store which original index this button represents
+          btn.dataset.orig = opt.orig;
+          document.getElementById('btn-accept').disabled = false;
+        });
+        answers.appendChild(btn);
+      });
+    }
 
-btnStart.addEventListener("click", ()=>{ try{ soundClick.currentTime=0; soundClick.play(); }catch(e){}; startGame(); });
-btnViewText.addEventListener("click", ()=>{ modalText.classList.remove("hidden"); });
-closeText.addEventListener("click", ()=> modalText.classList.add("hidden"));
-btnHistory.addEventListener("click", ()=> { renderHistory(); modalHistory.classList.remove("hidden"); });
-closeHistory && closeHistory.addEventListener("click", ()=> modalHistory.classList.add("hidden"));
-btnClearHistory && btnClearHistory.addEventListener("click", ()=> { if(confirm("Esborrem l'historial?")){ localStorage.removeItem(STORAGE_KEY); renderHistory(); } });
+    function verifyAnswer(){
+      const q = gameQuestions[currentIndex];
+      const btns = document.querySelectorAll('#answers button');
+      if(selectedChoiceIndex===null) return;
+      // find the selected button (by ring class)
+      let selectedBtn = null;
+      btns.forEach(b=>{ if(b.classList.contains('ring-2')) selectedBtn = b; b.disabled = true; });
+      const chosenOrig = parseInt(selectedBtn.dataset.orig,10);
+      const isCorrect = chosenOrig === q.correct;
+      if(isCorrect){
+        correctCount++;
+        document.getElementById('score-correct').textContent = correctCount;
+        selectedBtn.classList.add('bg-green-100','border-green-300');
+        try{ correctSound.currentTime = 0; correctSound.play(); }catch(e){}
+        // short delay then next
+        setTimeout(()=>{ proceedToNext(); }, 800);
+      } else {
+        wrongCount++;
+        document.getElementById('score-wrong').textContent = wrongCount;
+        // mark correct and wrong
+        btns.forEach(b=>{
+          const orig = parseInt(b.dataset.orig,10);
+          if(orig === q.correct) b.classList.add('bg-green-100','border-green-300');
+          else if(b.classList.contains('ring-2')) b.classList.add('bg-red-100','border-red-300');
+          else b.classList.add('bg-gray-50');
+        });
+        try{ wrongSound.currentTime = 0; wrongSound.play(); }catch(e){}
+        // show next button and wait for user
+        document.getElementById('btn-next').classList.remove('hidden');
+      }
+    }
 
-btnPlayAgain.addEventListener("click", ()=>{ try{ soundClick.currentTime=0; soundClick.play(); }catch(e){}; startGame(); });
-btnBackHome.addEventListener("click", ()=> showScreen("start"));
+    function proceedToNext(){
+      currentIndex++;
+      if(currentIndex>=5){ finishGame(); }
+      else { renderQuestion(); }
+    }
 
-btnAccept.addEventListener("click", ()=> { if(selectedAnswerIndex===null) return; verifyAnswer(); });
-btnNext.addEventListener("click", ()=> { btnNext.classList.add("hidden"); proceedToNext(); });
+    function finishGame(){
+      document.getElementById('progress-bar').style.width = '100%';
+      document.getElementById('final-correct').textContent = correctCount;
+      document.getElementById('final-wrong').textContent = wrongCount;
+      // simple messages
+      const title = document.getElementById('result-title');
+      const emoji = document.getElementById('result-emoji');
+      if(correctCount >= 4){ emoji.textContent = '🏆'; title.textContent = 'Super! Molt bé!'; }
+      else if(correctCount >= 2){ emoji.textContent = '🙂'; title.textContent = 'Bona feina!'; }
+      else { emoji.textContent = '🤔'; title.textContent = "Hem d'estudiar una mica més"; }
 
-document.addEventListener("keydown",(e)=>{
-  if (document.getElementById("screen-game").classList.contains("hidden")) return;
-  if(['1','2','3'].includes(e.key)){ const idx=parseInt(e.key,10)-1; const btns=answersDiv.querySelectorAll("button"); if(btns[idx]) btns[idx].click(); }
-  else if(e.key==='Enter'){ if(!btnAccept.disabled) btnAccept.click(); }
-});
+      // save in localStorage
+      try{
+        const hist = JSON.parse(localStorage.getItem('medieval_scores')||'[]');
+        hist.unshift({ date: new Date().toISOString(), correct: correctCount, wrong: wrongCount });
+        localStorage.setItem('medieval_scores', JSON.stringify(hist.slice(0,50)));
+      }catch(e){ console.warn('No s'ha pogut guardar historial', e); }
 
-/* game functions */
-function startGame(){ const copy=ALL_QUESTIONS.map((q,idx)=>({...q,id:idx})); shuffleArray(copy); gameQuestions=copy.slice(0,5); currentQ=0; scoreCorrect=0; scoreWrong=0; selectedAnswerIndex=null; scoreCorrectEl.textContent='0'; scoreWrongEl.textContent='0'; progressBar.style.width='0%'; showScreen('game'); renderQuestion(); }
-function renderQuestion(){ const qObj=gameQuestions[currentQ]; qIndexEl.textContent=(currentQ+1); progressBar.style.width=((currentQ/5)*100)+'%'; questionText.textContent=qObj.q; answersDiv.innerHTML=''; selectedAnswerIndex=null; btnAccept.disabled=true; btnNext.classList.add('hidden'); const originalChoices=qObj.choices.map((c,i)=>({text:c,orig:i})); shuffledChoices=shuffleArray(originalChoices.slice()); shuffledChoices.forEach((choice,i)=>{ const sp=splitEmojiFromText(choice.text); const displayEmoji=sp.emoji||'🔹'; const displayText=sp.text||choice.text; const btn=document.createElement('button'); btn.type='button'; btn.className='answer-btn text-left border rounded-lg px-4 py-3 hover:scale-[1.01] transition flex items-center gap-3 bg-white text-gray-800'; btn.innerHTML=`<span class="num-badge">${i+1}</span><span class="emoji-small">${displayEmoji}</span><span class="flex-1">${escapeHtml(displayText)}</span>`; btn.addEventListener('click',()=>{ const all=answersDiv.querySelectorAll('button'); all.forEach(b=>b.classList.remove('ring-2','ring-indigo-300')); btn.classList.add('ring-2','ring-indigo-300'); selectedAnswerIndex=i; btnAccept.disabled=false; }); answersDiv.appendChild(btn); }); }
-function verifyAnswer(){ const qObj=gameQuestions[currentQ]; const chosenOriginalIndex=shuffledChoices[selectedAnswerIndex].orig; const isCorrect=chosenOriginalIndex===qObj.correctIndex; const card=document.getElementById('card'); const btns=answersDiv.querySelectorAll('button'); btns.forEach(b=>b.disabled=true); btnAccept.disabled=true; if(isCorrect){ scoreCorrect++; scoreCorrectEl.textContent=scoreCorrect; card.classList.add('correct-glow'); try{ soundCorrect.currentTime=0; soundCorrect.play(); }catch(e){}; btns[selectedAnswerIndex].classList.add('bg-green-100','border-green-300'); setTimeout(()=>{ card.classList.remove('correct-glow'); proceedToNext(); },900); } else { scoreWrong++; scoreWrongEl.textContent=scoreWrong; card.classList.add('wrong-shake'); try{ soundWrong.currentTime=0; soundWrong.play(); }catch(e){}; btns.forEach((b,i)=>{ const orig=shuffledChoices[i].orig; if(orig===qObj.correctIndex){ b.classList.add('bg-green-100','border-green-300'); } else if(i===selectedAnswerIndex){ b.classList.add('bg-red-100','border-red-300'); } else { b.classList.add('bg-gray-50'); } }); btnNext.classList.remove('hidden'); setTimeout(()=>{ card.classList.remove('wrong-shake'); },700); } }
-function proceedToNext(){ currentQ++; if(currentQ>=5) finishGame(); else renderQuestion(); }
-function finishGame(){ progressBar.style.width='100%'; finalCorrect.textContent=scoreCorrect; finalWrong.textContent=scoreWrong; if(scoreCorrect>=4){ resultEmoji.textContent='🏆'; resultTitle.textContent='Super! Molt bé!'; } else if(scoreCorrect>=2){ resultEmoji.textContent='🙂'; resultTitle.textContent='Bona feina!'; } else { resultEmoji.textContent='🤔'; resultTitle.textContent="Hem d'estudiar una mica més"; } saveScore({ date: new Date().toISOString(), correct: scoreCorrect, wrong: scoreWrong }); showScreen('result'); }
-function showScreen(name){ document.getElementById('screen-start').classList.toggle('hidden', name!=='start'); document.getElementById('screen-game').classList.toggle('hidden', name!=='game'); document.getElementById('screen-result').classList.toggle('hidden', name!=='result'); if(name==='start') progressBar.style.width='0%'; }
+      showScreen('result');
+    }
 
-function getHistory(){ try{ const raw=localStorage.getItem(STORAGE_KEY); return raw?JSON.parse(raw):[]; }catch(e){ return []; } }
-function saveScore(obj){ const hist=getHistory(); hist.unshift(obj); localStorage.setItem(STORAGE_KEY, JSON.stringify(hist.slice(0,50))); }
-function renderHistory(){ const list=getHistory(); const container=document.getElementById('history-list'); container.innerHTML=''; if(!list.length){ container.innerHTML='<p class="text-gray-600">No hi ha resultats. Juga una partida!</p>'; return; } const ul=document.createElement('ul'); ul.className='space-y-2'; list.forEach((s,i)=>{ const li=document.createElement('li'); const date=new Date(s.date); li.innerHTML=`<div class="p-3 bg-gray-50 rounded flex justify-between items-center"> <div><div class="text-sm font-medium">Partida ${list.length - i}</div><div class="text-xs text-gray-500">Data: ${date.toLocaleString()}</div></div> <div class="text-sm"><span class="font-semibold text-green-600">${s.correct}</span> ✔ — <span class="font-semibold text-red-600">${s.wrong}</span> ✖</div> </div>`; ul.appendChild(li); }); container.appendChild(ul); }
+    function showScreen(name){
+      document.getElementById('screen-start').classList.toggle('hidden', name!=='start');
+      document.getElementById('screen-game').classList.toggle('hidden', name!=='game');
+      document.getElementById('screen-result').classList.toggle('hidden', name!=='result');
+      if(name==='start') document.getElementById('progress-bar').style.width = '0%';
+    }
 
-showScreen('start');
-try{ soundClick.load(); soundCorrect.load(); soundWrong.load(); }catch(e){}
-document.addEventListener('click',(e)=>{ const mt=document.getElementById('modal-text'); const mh=document.getElementById('modal-history'); if(mt && !mt.classList.contains('hidden') && e.target===mt) mt.classList.add('hidden'); if(mh && !mh.classList.contains('hidden') && e.target===mh) mh.classList.add('hidden'); });
+    function renderHistory(){
+      const list = JSON.parse(localStorage.getItem('medieval_scores')||'[]');
+      const container = document.getElementById('history-list');
+      container.innerHTML = '';
+      if(!list.length) return container.innerHTML = '<p class="text-gray-600">No hi ha resultats encara.</p>';
+      list.slice(0,20).forEach((s,i)=>{
+        const d = new Date(s.date);
+        const el = document.createElement('div');
+        el.className = 'p-3 bg-gray-50 rounded mb-2 flex justify-between items-center';
+        el.innerHTML = `<div><div class="text-sm font-medium">Partida ${i+1}</div><div class="text-xs text-gray-500">${d.toLocaleString()}</div></div><div class="text-sm"><span class="font-semibold text-green-600">${s.correct}</span> ✔ — <span class="font-semibold text-red-600">${s.wrong}</span> ✖</div>`;
+        container.appendChild(el);
+      });
+    }
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').then(()=>{ console.log('SW registered'); }).catch(()=>{ console.log('SW failed'); });
-}
-</script>
+    // Initialize
+    createInitialUI();
+    showScreen('start');
+
+  </script>
 </body>
 </html>
