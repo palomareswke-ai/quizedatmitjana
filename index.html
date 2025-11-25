@@ -277,57 +277,65 @@ function verifyAnswer(){
   // Si no hay selección, no continuar
   if (selectedChoiceIndex === null) return;
 
-  // Desactivar botones y el aceptar
+  // Desactivar botones y aceptación
   btns.forEach(b => b.disabled = true);
   document.getElementById('btn-accept').disabled = true;
 
-  // Averiguar cuál era la opción original escogida
-  // (la almacenamos en data-orig cuando rendereamos)
+  // Botón seleccionado por el usuario
   let selectedBtn = null;
-  btns.forEach(b => { if (b.classList.contains('ring-2')) selectedBtn = b; });
+  btns.forEach(b => { 
+    if (b.classList.contains('ring-2')) selectedBtn = b;
+  });
 
   const chosenOrig = selectedBtn ? parseInt(selectedBtn.dataset.orig, 10) : null;
   const isCorrect = chosenOrig === q.correct;
 
   if (isCorrect) {
-    // Acierto: contador, efecto y avanzar rápido
+    // --- ACIERTO ---
     correctCount++;
     document.getElementById('score-correct').textContent = correctCount;
-    if (selectedBtn) {
-      selectedBtn.classList.add('bg-green-100','border-green-300','ring-4','ring-green-300');
-    }
-    try{ correctSound.currentTime = 0; correctSound.play(); }catch(e){}
-    setTimeout(()=>{ proceedToNext(); }, 800);
+
+    selectedBtn.classList.add(
+      'bg-green-100','border-green-300',
+      'ring-4','ring-green-400'
+    );
+
+    try { correctSound.currentTime = 0; correctSound.play(); } catch(e){}
+
+    setTimeout(()=>{ proceedToNext(); }, 900);
   } else {
-    // Fallo: incrementar, poner contornos claros
+    // --- FALLO ---
     wrongCount++;
     document.getElementById('score-wrong').textContent = wrongCount;
 
-    // Marcar: selected -> contorno rojo ; correcta -> contorno verde
+    // 1️⃣ MARCAR EL BOTÓN INCORRECTO (el elegido)
+    selectedBtn.classList.add(
+      'ring-4','ring-red-400','border-red-300'
+    );
+    selectedBtn.classList.remove('ring-indigo-300');
+
+    // 2️⃣ MARCAR EL BOTÓN CORRECTO (siempre en verde)
     btns.forEach(b => {
       const orig = parseInt(b.dataset.orig, 10);
-      // botón seleccionado por el usuario -> rojo
-      if (b.classList.contains('ring-2')) {
-        b.classList.add('ring-4','ring-red-400','border-red-300');
-        b.classList.remove('ring-indigo-300');
-      }
-      // botón correcto -> verde
+
       if (orig === q.correct) {
-        b.classList.add('ring-4','ring-green-400','border-green-300');
-        // si por casualidad es el mismo que el seleccionado, prioridad verde (mantener)
-        if (b.classList.contains('ring-red-400')) {
-          b.classList.remove('ring-red-400');
-          b.classList.add('ring-green-400');
-        }
+        b.classList.add(
+          'ring-4','ring-green-400','border-green-300','bg-green-100'
+        );
+        b.classList.remove('opacity-60','ring-indigo-300','ring-red-400');
       }
-      // los demás se desactivan visualmente
-      if (!b.classList.contains('ring-4')) {
+    });
+
+    // 3️⃣ Atenuar el resto
+    btns.forEach(b => {
+      const orig = parseInt(b.dataset.orig, 10);
+      if (orig !== q.correct && b !== selectedBtn) {
         b.classList.add('opacity-60');
       }
     });
 
-    try{ wrongSound.currentTime = 0; wrongSound.play(); }catch(e){}
-    // Mostrar botón "Següent pregunta" y esperar al usuario
+    try { wrongSound.currentTime = 0; wrongSound.play(); } catch(e){}
+
     document.getElementById('btn-next').classList.remove('hidden');
   }
 }
